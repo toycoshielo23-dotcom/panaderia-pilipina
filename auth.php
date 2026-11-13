@@ -17,12 +17,22 @@ if (!loginGuardAllowsAttempt('login')) {
     exit();
 }
 
-$role = strtolower(trim((string)($_POST['role'] ?? '')));
-$email = strtolower(trim((string)($_POST['email'] ?? '')));
 $password = (string)($_POST['password'] ?? '');
-$validRole = in_array($role, ['', 'admin', 'customer'], true);
+$adminMatches = $password !== '' && appAdminLoginSucceeds(appAdminEmail(), $password);
+$customerMatches = [];
+if ($password !== '') {
+    foreach (loadCustomerAccounts() as $account) {
+        $storedPassword = (string)($account['password'] ?? '');
+        if ($storedPassword !== '' && password_verify($password, $storedPassword)) {
+            $customerMatches[] = $account;
+            if (count($customerMatches) > 1) {
+                break;
+            }
+        }
+    }
+}
 
-if ($validRole && in_array($role, ['', 'admin'], true) && appAdminLoginSucceeds($email, $password)) {
+if ($adminMatches && $customerMatches === []) {
     loginGuardReset('login');
     $_SESSION = [];
     session_regenerate_id(true);
@@ -32,38 +42,23 @@ if ($validRole && in_array($role, ['', 'admin'], true) && appAdminLoginSucceeds(
     exit();
 }
 
-if ($validRole && in_array($role, ['', 'customer'], true)) {
-    foreach (loadCustomerAccounts() as $account) {
-        if (strtolower((string)($account['email'] ?? '')) === $email && password_verify($password, $account['password'] ?? '')) {
-            loginGuardReset('login');
-            $_SESSION = [];
-            session_regenerate_id(true);
-            $_SESSION['role'] = 'customer';
-            $_SESSION['username'] = trim((string)($account['full_name'] ?? $account['username'] ?? $email));
-            $_SESSION['customer_email'] = $email;
-            header('Location: /customer%20dashboard/customer_dashboard.php');
-            exit();
-        }
-    }
-}
-
-// Customer demo accounts are only enabled when explicitly turned on, so a
-// public deployment does not ship a known-good login.
-if ($validRole && in_array($role, ['', 'customer'], true) && appEnv('ENABLE_DEMO_ACCOUNTS', '0') === '1') {
-    $demoCustomerEmails = ['customer@gmail.com', 'customer@panaderia.com'];
-    if (in_array($role, ['', 'customer'], true) && in_array($email, $demoCustomerEmails, true) && $password === 'customer123') {
-        loginGuardReset('login');
-        $_SESSION = [];
-        session_regenerate_id(true);
-        $_SESSION['role'] = 'customer';
-        $_SESSION['username'] = 'customer';
-        $_SESSION['customer_email'] = $email;
-        header('Location: /customer%20dashboard/customer_dashboard.php');
-        exit();
-    }
+if (!$adminMatches && count($customerMatches) === 1) {
+    $account = $customerMatches[0];
+    $email = strtolower(trim((string)($account['email'] ?? '')));
+    loginGuardReset('login');
+    $_SESSION = [];
+    session_regenerate_id(true);
+    $_SESSION['role'] = 'customer';
+    $_SESSION['username'] = trim((string)($account['full_name'] ?? $account['username'] ?? $email));
+    $_SESSION['customer_email'] = $email;
+    header('Location: /customer%20dashboard/customer_dashboard.php');
+    exit();
 }
 
 // Recorded AFTER clearing the session above, so $_SESSION = [] cannot wipe it.
 loginGuardRecordFailure('login');
-header('Location: /login%20form/login.php?error=Invalid+email+or+password');
+$error = $adminMatches || count($customerMatches) > 1
+    ? 'This password is shared by multiple accounts. Each account needs a unique password.'
+    : 'Invalid password.';
+header('Location: /login%20form/login.php?error=' . rawurlencode($error));
 exit();

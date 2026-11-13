@@ -48,6 +48,22 @@ function loadCustomerAccounts(): array
     return $accounts;
 }
 
+function customerPasswordIsInUse(array $accounts, string $password, ?int $exceptIndex = null): bool
+{
+    foreach ($accounts as $index => $account) {
+        if ($index === $exceptIndex) {
+            continue;
+        }
+
+        $storedPassword = (string)($account['password'] ?? '');
+        if ($storedPassword !== '' && password_verify($password, $storedPassword)) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function saveCustomerAccounts(array $accounts): bool
 {
     $json = json_encode(array_values($accounts), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);

@@ -219,6 +219,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
 
             if ($accountIndex === null) {
                 $message = 'We could not find the customer account linked to this email.';
+            } elseif (appAdminLoginSucceeds(appAdminEmail(), $newPassword) || customerPasswordIsInUse($accounts, $newPassword, $accountIndex)) {
+                $message = 'Choose a unique password so the system can identify your account.';
             } else {
                 $accounts[$accountIndex]['password'] = password_hash($newPassword, PASSWORD_DEFAULT);
                 if (!saveCustomerAccounts($accounts)) {

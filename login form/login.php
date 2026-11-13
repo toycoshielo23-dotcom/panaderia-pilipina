@@ -88,7 +88,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'customer') {
     <main class="login-box">
         <div class="logo" aria-hidden="true">🥖</div>
         <h1>Panaderia Pilipina</h1>
-        <p class="subtitle">Login</p>
+        <p class="subtitle">Login with your unique password.</p>
 
         <?php if (isset($_GET['error'])): ?>
             <p class="message" role="alert"><?php echo htmlspecialchars($_GET['error'], ENT_QUOTES, 'UTF-8'); ?></p>
@@ -100,12 +100,8 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'customer') {
         <form action="../auth.php" method="POST" autocomplete="on">
             <input type="hidden" name="login" value="1">
             <div class="field">
-                <label for="email">Gmail</label>
-                <input id="email" type="email" name="email" autocomplete="username" required autofocus>
-            </div>
-            <div class="field">
                 <label for="password">Password</label>
-                <input id="password" type="password" name="password" autocomplete="current-password" required>
+                <input id="password" type="password" name="password" autocomplete="current-password" required autofocus>
             </div>
             <button type="submit">Login</button>
         </form>

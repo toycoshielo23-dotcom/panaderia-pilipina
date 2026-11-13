@@ -13,9 +13,9 @@ to `.env` and configure `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` to enable
 administrator sign-in. Demo accounts are disabled unless
 `ENABLE_DEMO_ACCOUNTS=1`.
 The entry page offers **Sign In** for customer registration and **Login** for
-existing accounts. Login detects admin or customer accounts from the email and
-password. Password resets require an emailed OTP before the password can be
-changed.
+existing accounts. Login uses a password only; each account must have a unique
+password so the app can route to the correct customer or admin account.
+Password resets require an emailed OTP before the password can be changed.
 
 ## Deploy to Render
 

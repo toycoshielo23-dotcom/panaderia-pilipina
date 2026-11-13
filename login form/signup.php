@@ -28,6 +28,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($emailTaken) {
             $error = 'That email is already registered or reserved.';
+        } elseif (appAdminLoginSucceeds(appAdminEmail(), $password) || customerPasswordIsInUse($accounts, $password)) {
+            $error = 'Choose a unique password so the system can identify your account.';
         } else {
             $accounts[] = [
                 'full_name' => $fullName,
@@ -56,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .signup-box { width: min(410px, 100%); padding: 30px 25px; border: 2px solid #f59e0b; border-radius: 18px; background: #fffdf9; box-shadow: 0 14px 30px rgba(146, 64, 14, .2); }
         h1 { margin: 0 0 6px; text-align: center; color: #7c2d12; font-size: 1.7rem; }
         .subtitle { margin: 0 0 22px; text-align: center; color: #9a4d12; }
+        .notice { margin: 0 0 18px; text-align: center; color: #78350f; font-size: .9rem; }
         .field { margin-bottom: 15px; }
         .field.horizontal { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 10px; }
         .field.horizontal label { margin-bottom: 0; }
@@ -70,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <main class="signup-box">
         <h1>Create Customer Account</h1>
         <p class="subtitle">Join Panaderia Pilipina</p>
+        <p class="notice">Use a unique password; it identifies your account when you log in.</p>
         <?php if ($error !== ''): ?><div class="message"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <form method="POST">
             <div class="field horizontal"><label for="full_name">Full Name</label><input id="full_name" name="full_name" required maxlength="80" autocomplete="name"></div>
