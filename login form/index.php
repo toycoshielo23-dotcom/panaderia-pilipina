@@ -92,7 +92,7 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'customer') {
     <main class="login-box">
         <div class="logo" aria-hidden="true">🥖</div>
         <h1>Panaderia Pilipina</h1>
-        <p class="subtitle">Sign in to your account</p>
+        <p class="subtitle">Login</p>
 
         <?php if (isset($_GET['error'])): ?>
             <p class="message" role="alert"><?php echo htmlspecialchars($_GET['error'], ENT_QUOTES, 'UTF-8'); ?></p>
@@ -114,14 +114,10 @@ if (isset($_SESSION['role']) && $_SESSION['role'] === 'customer') {
             <button type="submit">Sign In</button>
         </form>
 
-        <?php if (!appAdminCredentialsReady()): ?>
-            <p class="message" role="alert">Admin login is not configured. Set ADMIN_EMAIL and ADMIN_PASSWORD on the server.</p>
-        <?php endif; ?>
         <?php if (appEnv('ENABLE_DEMO_ACCOUNTS', '0') === '1'): ?>
             <p class="link">Demo customer: customer@gmail.com / customer123</p>
         <?php endif; ?>
         <a class="link" href="forgot_password.php">Forgot customer password?</a>
-        <a class="link" href="signup.php">Create customer account</a>
     </main>
 </body>
 </html>
