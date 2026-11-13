@@ -2,7 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'customer') {
-    header('Location: ../login%20form/index.php?error=Please+login+as+customer');
+    header('Location: ../login%20form/login.php?error=Please+login+as+customer');
     exit();
 }
 

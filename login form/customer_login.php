@@ -1,4 +1,4 @@
 <?php
 $query = $_SERVER['QUERY_STRING'] ?? '';
-header('Location: index.php' . ($query !== '' ? '?' . $query : ''));
+header('Location: login.php' . ($query !== '' ? '?' . $query : ''));
 exit();

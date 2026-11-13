@@ -2,7 +2,7 @@
 session_start();
 
 if (!isset($_SESSION['role']) || $_SESSION['role'] !== 'admin') {
-    header('Location: ../../login%20form/index.php?error=Please+login+as+admin');
+    header('Location: ../../login%20form/login.php?error=Please+login+as+admin');
     exit();
 }
 

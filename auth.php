@@ -6,14 +6,14 @@ require_once __DIR__ . '/app_config.php';
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !isset($_POST['login'])) {
     $_SESSION = [];
     session_regenerate_id(true);
-    header('Location: /login%20form/index.php');
+    header('Location: /login%20form/login.php');
     exit();
 }
 
 // Simple per-session throttle to blunt online password guessing.
 require_once __DIR__ . '/login_guard.php';
 if (!loginGuardAllowsAttempt('login')) {
-    header('Location: /login%20form/index.php?error=' . rawurlencode('Too many attempts. Please try again in a few minutes.'));
+    header('Location: /login%20form/login.php?error=' . rawurlencode('Too many attempts. Please try again in a few minutes.'));
     exit();
 }
 
@@ -65,5 +65,5 @@ if ($validRole && in_array($role, ['', 'customer'], true) && appEnv('ENABLE_DEMO
 
 // Recorded AFTER clearing the session above, so $_SESSION = [] cannot wipe it.
 loginGuardRecordFailure('login');
-header('Location: /login%20form/index.php?error=Invalid+email+or+password');
+header('Location: /login%20form/login.php?error=Invalid+email+or+password');
 exit();

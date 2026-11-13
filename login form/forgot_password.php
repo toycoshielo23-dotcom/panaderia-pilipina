@@ -8,6 +8,11 @@ require_once __DIR__ . '/../account_store.php';
 
 $role = ($_GET['role'] ?? $_POST['role'] ?? 'customer') === 'admin' ? 'admin' : 'customer';
 $message = '';
+$resetStage = 'email';
+
+if (isset($_GET['restart'])) {
+    unset($_SESSION['reset_email'], $_SESSION['reset_otp'], $_SESSION['reset_expires'], $_SESSION['reset_attempts'], $_SESSION['reset_verified']);
+}
 
 if (!function_exists('generateOtp')) {
     function generateOtp(): string
@@ -39,7 +44,7 @@ if (!function_exists('smtpConfigValue')) {
             return $environmentValue;
         }
 
-        $configPath = dirname(__DIR__, 3) . '/.env';
+        $configPath = dirname(__DIR__) . '/.env';
         if (!is_file($configPath) || !is_readable($configPath)) {
             return $default;
         }
@@ -72,7 +77,7 @@ if (!function_exists('sendOtpEmail')) {
     {
         $username = smtpConfigValue('GMAIL_SMTP_USER');
         $password = preg_replace('/\s+/', '', smtpConfigValue('GMAIL_SMTP_PASS'));
-        $fromEmail = $username;
+        $fromEmail = smtpConfigValue('GMAIL_SMTP_FROM', $username);
         $fromName = smtpConfigValue('GMAIL_SMTP_FROM_NAME', 'Panaderia Pilipina');
 
         if ($username === '' || $password === '') {
@@ -128,70 +133,76 @@ if (!function_exists('sendOtpEmail')) {
     }
 }
 
-if (!function_exists('findCustomerByIdentity')) {
-    function findCustomerByIdentity(array $accounts, string $fullName, string $email): ?array
+if (!function_exists('clearPasswordResetState')) {
+    function clearPasswordResetState(): void
     {
-        foreach ($accounts as $account) {
-            $storedFullName = trim((string)($account['full_name'] ?? ''));
-            $storedUsername = trim((string)($account['username'] ?? ''));
-            $nameMatches = $storedFullName !== '' && strtolower($storedFullName) === strtolower($fullName);
-            $legacyUsernameMatches = $storedUsername !== '' && strtolower($storedUsername) === strtolower($fullName);
-            $emailMatches = strtolower((string)($account['email'] ?? '')) === strtolower($email);
-
-            if (($nameMatches || $legacyUsernameMatches) && $emailMatches) {
-                return $account;
-            }
-        }
-
-        return null;
+        unset($_SESSION['reset_email'], $_SESSION['reset_otp'], $_SESSION['reset_expires'], $_SESSION['reset_attempts'], $_SESSION['reset_verified']);
     }
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
-    $action = $_POST['action'] ?? 'send_otp';
-    $fullName = trim($_POST['full_name'] ?? '');
-    $email = strtolower(trim($_POST['email'] ?? ''));
+    $action = (string)($_POST['action'] ?? 'send_otp');
 
     if ($action === 'send_otp') {
-        if ($fullName === '' || $email === '') {
-            $message = 'Please enter your full name and registered email.';
+        $email = strtolower(trim((string)($_POST['email'] ?? '')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $message = 'Enter a valid Gmail address.';
         } else {
             $accounts = loadCustomerAccounts();
-            $customer = findCustomerByIdentity($accounts, $fullName, $email);
-
-            if ($customer === null) {
-                $message = 'We could not find a matching customer account with that full name and email.';
-            } else {
-                $otp = generateOtp();
-                $_SESSION['reset_email'] = $email;
-                $_SESSION['reset_full_name'] = $fullName;
-                $_SESSION['reset_otp'] = $otp;
-                $_SESSION['reset_expires'] = time() + 600;
-
-                $sent = sendOtpEmail($email, $otp);
-                if ($sent) {
-                    $message = 'An OTP has been sent to your registered email. Enter it below to continue.';
-                } else {
-                    unset($_SESSION['reset_email'], $_SESSION['reset_full_name'], $_SESSION['reset_otp'], $_SESSION['reset_expires']);
-                    $message = 'OTP email could not be sent. Configure GMAIL_SMTP_USER and GMAIL_SMTP_PASS with your Gmail app password to enable real email OTP.';
+            $accountExists = false;
+            foreach ($accounts as $account) {
+                if (strtolower((string)($account['email'] ?? '')) === $email) {
+                    $accountExists = true;
+                    break;
                 }
             }
+
+            $otp = generateOtp();
+            $_SESSION['reset_email'] = $email;
+            $_SESSION['reset_otp'] = $otp;
+            $_SESSION['reset_expires'] = time() + 600;
+            $_SESSION['reset_attempts'] = 0;
+            $_SESSION['reset_verified'] = false;
+
+            if ($accountExists && !sendOtpEmail($email, $otp)) {
+                clearPasswordResetState();
+                $message = 'Could not send the verification code. Configure Gmail SMTP to enable password reset.';
+            } else {
+                header('Location: forgot_password.php?stage=otp');
+                exit();
+            }
         }
-    } elseif ($action === 'verify_reset') {
+    } elseif ($action === 'verify_otp') {
         $otp = trim((string)($_POST['otp'] ?? ''));
-        $newPassword = $_POST['new_password'] ?? '';
-        $confirmPassword = $_POST['confirm_password'] ?? '';
-        $sessionEmail = $_SESSION['reset_email'] ?? '';
-        $sessionOtp = $_SESSION['reset_otp'] ?? '';
+        $sessionEmail = (string)($_SESSION['reset_email'] ?? '');
+        $sessionOtp = (string)($_SESSION['reset_otp'] ?? '');
         $expiresAt = (int)($_SESSION['reset_expires'] ?? 0);
 
         if ($sessionEmail === '' || $sessionOtp === '' || $expiresAt < time()) {
-            $_SESSION['reset_email'] = '';
-            $_SESSION['reset_otp'] = '';
-            $_SESSION['reset_expires'] = 0;
-            $message = 'Your OTP has expired. Please request a new one.';
-        } elseif ($otp !== $sessionOtp) {
+            clearPasswordResetState();
+            $message = 'Your verification code expired. Request a new one.';
+        } elseif ((int)($_SESSION['reset_attempts'] ?? 0) >= 5) {
+            clearPasswordResetState();
+            $message = 'Too many incorrect codes. Request a new one.';
+        } elseif (!hash_equals($sessionOtp, $otp)) {
+            $_SESSION['reset_attempts'] = (int)($_SESSION['reset_attempts'] ?? 0) + 1;
             $message = 'The OTP you entered is incorrect.';
+        } else {
+            session_regenerate_id(true);
+            $_SESSION['reset_verified'] = true;
+            unset($_SESSION['reset_otp'], $_SESSION['reset_attempts']);
+            header('Location: forgot_password.php?stage=password');
+            exit();
+        }
+    } elseif ($action === 'reset_password') {
+        $newPassword = (string)($_POST['new_password'] ?? '');
+        $confirmPassword = (string)($_POST['confirm_password'] ?? '');
+        $sessionEmail = (string)($_SESSION['reset_email'] ?? '');
+        $expiresAt = (int)($_SESSION['reset_expires'] ?? 0);
+
+        if ($sessionEmail === '' || empty($_SESSION['reset_verified']) || $expiresAt < time()) {
+            clearPasswordResetState();
+            $message = 'Verify your email again before changing your password.';
         } elseif (strlen($newPassword) < 8) {
             $message = 'Password must be at least 8 characters.';
         } elseif ($newPassword !== $confirmPassword) {
@@ -213,16 +224,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
                 if (!saveCustomerAccounts($accounts)) {
                     $message = 'Could not update the password. Please try again.';
                 } else {
-                    $_SESSION['reset_email'] = '';
-                    $_SESSION['reset_full_name'] = '';
-                    $_SESSION['reset_otp'] = '';
-                    $_SESSION['reset_expires'] = 0;
-                    header('Location: customer_login.php?success=Password+reset.+Please+log+in+with+your+new+password.');
+                    clearPasswordResetState();
+                    header('Location: login.php?success=Password+reset.+Please+log+in+with+your+new+password.');
                     exit();
                 }
             }
         }
     }
+}
+
+$resetExpires = (int)($_SESSION['reset_expires'] ?? 0);
+if ($resetExpires > 0 && $resetExpires < time()) {
+    clearPasswordResetState();
+    $message = 'Your verification code expired. Request a new one.';
+}
+if (!empty($_SESSION['reset_verified']) && $resetExpires >= time()) {
+    $resetStage = 'password';
+} elseif (!empty($_SESSION['reset_email']) && !empty($_SESSION['reset_otp']) && $resetExpires >= time()) {
+    $resetStage = 'otp';
 }
 ?>
 <!DOCTYPE html>
@@ -250,9 +269,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
         .password-visibility svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
         .password-visibility svg[hidden] { display: none; }
         .message { margin-bottom: 15px; padding: 10px; border-radius: 8px; background: #ecfdf5; color: #166534; border: 1px solid #bbf7d0; font-size: 14px; }
+        .message.error { background: #fff7ed; color: #c2410c; border-color: #fdba74; }
         .link { display: block; margin-top: 14px; text-align: center; color: #a16207; text-decoration: none; font-weight: 600; }
-        .muted { font-size: 0.8rem; color: #7c2d12; margin-top: 8px; }
-        .demo-code { font-weight: 700; letter-spacing: 0.12em; }
     </style>
 </head>
 <body>
@@ -261,32 +279,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
         <p class="subtitle">Recover access to your Panaderia Pilipina account.</p>
         <?php if ($role === 'admin'): ?>
             <p class="notice">Admin password recovery is restricted. Contact the site administrator to restore admin access.</p>
-            <a class="link" href="index.php">Back to Login</a>
+            <a class="link" href="login.php">Back to Login</a>
         <?php else: ?>
-            <?php if ($message !== ''): ?><div class="message"><?php echo htmlspecialchars($message); ?></div><?php endif; ?>
+            <?php if ($message !== ''): ?><div class="message error" role="alert"><?php echo htmlspecialchars($message, ENT_QUOTES, 'UTF-8'); ?></div><?php endif; ?>
 
-            <?php if (empty($_SESSION['reset_email'])): ?>
-                <p class="notice">Enter your full name and the email linked to your account. We will send a one-time password to that email.</p>
+            <?php if ($resetStage === 'email'): ?>
+                <p class="notice">Enter the Gmail address linked to your customer account. We will send a verification code before allowing a password change.</p>
                 <form method="POST">
                     <input type="hidden" name="role" value="customer">
                     <input type="hidden" name="action" value="send_otp">
-                    <div class="field"><label for="full_name">Full Name</label><input id="full_name" name="full_name" required autocomplete="name"></div>
-                    <div class="field"><label for="email">Registered email</label><input id="email" type="email" name="email" required autocomplete="email"></div>
-                    <button type="submit">Send OTP</button>
+                    <div class="field"><label for="email">Gmail</label><input id="email" type="email" name="email" required autocomplete="email"></div>
+                    <button type="submit">Continue</button>
                 </form>
             <?php else: ?>
-                <p class="notice">OTP sent to <?php echo htmlspecialchars($_SESSION['reset_email']); ?></p>
+                <?php if ($resetStage === 'otp'): ?>
+                    <p class="notice">If a customer account matches this email, a verification code has been sent. Enter the code to continue.</p>
+                <?php else: ?>
+                    <p class="notice">Your email is verified. Choose a new password.</p>
+                <?php endif; ?>
                 <form method="POST">
                     <input type="hidden" name="role" value="customer">
-                    <input type="hidden" name="action" value="verify_reset">
+                    <input type="hidden" name="action" value="<?php echo $resetStage === 'otp' ? 'verify_otp' : 'reset_password'; ?>">
+                    <?php if ($resetStage === 'otp'): ?>
                     <div class="field"><label for="otp">OTP Code</label><input id="otp" name="otp" required inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code"></div>
+                    <?php else: ?>
                     <div class="field"><label for="new_password">New password</label><div class="password-input-wrap"><input id="new_password" type="password" name="new_password" required minlength="8" autocomplete="new-password"><button class="password-visibility" type="button" data-target="new_password" aria-label="Show password" title="Show password"><svg id="eye_open_new" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg id="eye_closed_new" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="m3 3 18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a14.8 14.8 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.4 0 2.7-.3 3.8-.8"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></button></div></div>
                     <div class="field"><label for="confirm_password">Confirm new password</label><div class="password-input-wrap"><input id="confirm_password" type="password" name="confirm_password" required minlength="8" autocomplete="new-password"><button class="password-visibility" type="button" data-target="confirm_password" aria-label="Show password" title="Show password"><svg id="eye_open_confirm" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg><svg id="eye_closed_confirm" viewBox="0 0 24 24" aria-hidden="true" hidden><path d="m3 3 18 18"></path><path d="M10.6 5.1A10.8 10.8 0 0 1 12 5c6.4 0 10 7 10 7a14.8 14.8 0 0 1-3.1 3.8M6.2 6.2C3.5 8 2 12 2 12s3.6 7 10 7c1.4 0 2.7-.3 3.8-.8"></path><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"></path></svg></button></div></div>
-                    <button type="submit">Reset Password</button>
+                    <?php endif; ?>
+                    <button type="submit"><?php echo $resetStage === 'otp' ? 'Verify Code' : 'Change Password'; ?></button>
                 </form>
-                <a class="link" href="forgot_password.php?role=customer">Request a new OTP</a>
+                <?php if ($resetStage === 'otp'): ?>
+                    <a class="link" href="forgot_password.php?restart=1">Use a different Gmail</a>
+                <?php endif; ?>
             <?php endif; ?>
-            <a class="link" href="index.php">Back to Login</a>
+            <a class="link" href="login.php">Back to Login</a>
         <?php endif; ?>
     </main>
     <script>

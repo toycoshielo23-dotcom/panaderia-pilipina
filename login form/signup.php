@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_at' => date(DATE_ATOM),
             ];
             if (saveCustomerAccounts($accounts)) {
-                header('Location: index.php?success=Account+created.+Please+log+in.');
+                header('Location: login.php?success=Account+created.+Please+log+in.');
                 exit();
             }
             $error = 'Could not save your account. Please try again.';
@@ -57,6 +57,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         h1 { margin: 0 0 6px; text-align: center; color: #7c2d12; font-size: 1.7rem; }
         .subtitle { margin: 0 0 22px; text-align: center; color: #9a4d12; }
         .field { margin-bottom: 15px; }
+        .field.horizontal { display: grid; grid-template-columns: 90px minmax(0, 1fr); align-items: center; gap: 10px; }
+        .field.horizontal label { margin-bottom: 0; }
         label { display: block; margin-bottom: 6px; color: #7c2d12; font-weight: 700; }
         input { width: 100%; padding: 11px 12px; border: 1px solid #fbbf24; border-radius: 8px; background: #fffdf7; font-size: 14px; }
         button { width: 100%; padding: 12px; border: 0; border-radius: 10px; background: linear-gradient(135deg, #d97706, #b45309); color: #fff; font-size: 16px; font-weight: 700; cursor: pointer; }
@@ -70,13 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <p class="subtitle">Join Panaderia Pilipina</p>
         <?php if ($error !== ''): ?><div class="message"><?php echo htmlspecialchars($error); ?></div><?php endif; ?>
         <form method="POST">
-            <div class="field"><label for="full_name">Full Name</label><input id="full_name" name="full_name" required maxlength="80" autocomplete="name"></div>
-            <div class="field"><label for="email">Email</label><input id="email" type="email" name="email" required autocomplete="email"></div>
+            <div class="field horizontal"><label for="full_name">Full Name</label><input id="full_name" name="full_name" required maxlength="80" autocomplete="name"></div>
+            <div class="field"><label for="email">Gmail</label><input id="email" type="email" name="email" required autocomplete="email"></div>
             <div class="field"><label for="password">Password</label><input id="password" type="password" name="password" required minlength="8" autocomplete="new-password"></div>
-            <div class="field"><label for="confirm_password">Confirm password</label><input id="confirm_password" type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></div>
+            <div class="field"><label for="confirm_password">Confirm Password</label><input id="confirm_password" type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></div>
             <button type="submit">Create Account</button>
         </form>
-        <a class="link" href="index.php">Back to Login</a>
+        <a class="link" href="index.php">Back</a>
     </main>
 </body>
 </html>

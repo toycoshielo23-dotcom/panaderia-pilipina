@@ -12,8 +12,10 @@ In a GitHub Codespace, open the Ports tab and open port `8000`. Copy `.env.examp
 to `.env` and configure `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` to enable
 administrator sign-in. Demo accounts are disabled unless
 `ENABLE_DEMO_ACCOUNTS=1`.
-Admins and customers use the same login form; the email and password identify
-the account type automatically.
+The entry page offers **Sign In** for customer registration and **Login** for
+existing accounts. Login detects admin or customer accounts from the email and
+password. Password resets require an emailed OTP before the password can be
+changed.
 
 ## Deploy to Render
 
@@ -31,9 +33,9 @@ The Blueprint uses a paid always-on web service and a persistent disk mounted
 at `/var/data`, so customer accounts and orders survive deploys and restarts.
 The service is intentionally not configured for Render's free tier, which can
 spin down while idle and does not provide the required persistent storage.
-Keep `ENABLE_DEMO_ACCOUNTS` set to `0` in production. Gmail SMTP variables are
-optional; configure `GMAIL_SMTP_USER`, `GMAIL_SMTP_PASS`, and `GMAIL_SMTP_FROM`
-in the Render dashboard to enable password-reset email.
+Keep `ENABLE_DEMO_ACCOUNTS` set to `0` in production. Configure
+`GMAIL_SMTP_USER`, `GMAIL_SMTP_PASS`, and `GMAIL_SMTP_FROM` in the Render
+dashboard to send the verification codes required for password resets.
 
 Never put production credentials in Git or in the Docker image. If credentials
 were committed previously, rotate them; deleting the file in a new commit does
