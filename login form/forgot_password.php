@@ -261,7 +261,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
         <p class="subtitle">Recover access to your Panaderia Pilipina account.</p>
         <?php if ($role === 'admin'): ?>
             <p class="notice">Admin password recovery is restricted. Contact the site administrator to restore admin access.</p>
-            <a class="link" href="admin_login.php">Back to Admin Login</a>
+            <a class="link" href="index.php">Back to Login</a>
         <?php else: ?>
             <?php if ($message !== ''): ?><div class="message"><?php echo htmlspecialchars($message); ?></div><?php endif; ?>
 
@@ -286,7 +286,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $role === 'customer') {
                 </form>
                 <a class="link" href="forgot_password.php?role=customer">Request a new OTP</a>
             <?php endif; ?>
-            <a class="link" href="customer_login.php">Back to Customer Login</a>
+            <a class="link" href="index.php">Back to Login</a>
         <?php endif; ?>
     </main>
     <script>

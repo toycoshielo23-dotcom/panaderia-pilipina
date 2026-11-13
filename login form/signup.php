@@ -18,7 +18,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Passwords do not match.';
     } else {
         $accounts = loadCustomerAccounts();
-        $emailTaken = false;
+        $emailTaken = appAdminEmail() !== '' && $email === appAdminEmail();
         foreach ($accounts as $account) {
             if (strtolower($account['email'] ?? '') === $email) {
                 $emailTaken = true;
@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($emailTaken) {
-            $error = 'That email is already registered.';
+            $error = 'That email is already registered or reserved.';
         } else {
             $accounts[] = [
                 'full_name' => $fullName,
@@ -36,7 +36,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'created_at' => date(DATE_ATOM),
             ];
             if (saveCustomerAccounts($accounts)) {
-                header('Location: customer_login.php?success=Account+created.+Please+log+in.');
+                header('Location: index.php?success=Account+created.+Please+log+in.');
                 exit();
             }
             $error = 'Could not save your account. Please try again.';
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <div class="field"><label for="confirm_password">Confirm password</label><input id="confirm_password" type="password" name="confirm_password" required minlength="8" autocomplete="new-password"></div>
             <button type="submit">Create Account</button>
         </form>
-        <a class="link" href="customer_login.php">Back to Customer Login</a>
+        <a class="link" href="index.php">Back to Login</a>
     </main>
 </body>
 </html>

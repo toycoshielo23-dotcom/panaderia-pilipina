@@ -8,10 +8,12 @@ Requires PHP 8.0 or later with the standard session and JSON extensions.
 php -S 0.0.0.0:8000
 ```
 
-Forward port `8000` in VS Code and open the forwarded URL. Copy `.env.example`
+In a GitHub Codespace, open the Ports tab and open port `8000`. Copy `.env.example`
 to `.env` and configure `ADMIN_EMAIL` and a strong `ADMIN_PASSWORD` to enable
 administrator sign-in. Demo accounts are disabled unless
 `ENABLE_DEMO_ACCOUNTS=1`.
+Admins and customers use the same login form; the email and password identify
+the account type automatically.
 
 ## Deploy to Render
 
